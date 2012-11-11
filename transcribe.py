@@ -11,8 +11,10 @@
 # TODO: Test -- that is, other than in production...
 
 
+import argparse
 import collections
 import datetime
+import imp
 import math
 import os
 import os.path
@@ -199,10 +201,64 @@ def recreate_dir(path):
   os.mkdir(path)
 
 
-def generate_configuration(argv, transcribe_config):
+def generate_configuration(argv):
   """Returns the config to use based on the config file and invocation params."""
-  # TODO: Overrides from invocation parameters.
-  return transcribe_config
+
+  arg_parser = argparse.ArgumentParser(
+    description='Generate static HTML from Django templates and YAML content.',
+    epilog='All arguments are required, but they may be provided in a ' +
+      'configuration file instead. See the included sample for details.')
+  arg_parser.add_argument(
+    '-d', '--debug', type=bool, dest='DEBUG',
+    help='Sets the "debug" variable for use in templates.'
+  )
+  arg_parser.add_argument(
+    '-c', '--content', dest='CONTENT',
+    help='Directory containing YAML content.'
+  )
+  arg_parser.add_argument(
+    '-t', '--templates', dest='TEMPLATES',
+    help='Directory containing Django templates.'
+  )
+  arg_parser.add_argument(
+    '-o', '--output', dest='OUTPUT',
+    help='Directory to write output to. Note: Contents are not preserved.'
+  )
+  arg_parser.add_argument(
+    '-s', '--static', action='append', dest='STATIC',
+    help='Files/directories that should be copied verbatim to output directory.',
+  )
+  arg_parser.add_argument(
+    'configfile', nargs='?', default='transcribe_config',
+    help='Full path to the configuration file to use.'
+  )
+  config = arg_parser.parse_args(argv)
+  config.META = {}
+
+  config_dir = os.path.dirname(config.configfile)
+  config_file = os.path.basename(config.configfile)
+  if config_file[-3:] == '.py':
+    config_file = config_file[:-3]
+  try:
+    fh, fn, desc = imp.find_module(config_file, [config_dir])
+    file_config = imp.load_module('transcribe_config', fh, fn, desc)
+  except ImportError:
+    file_config = config
+
+  if not config.DEBUG:
+    config.DEBUG = file_config.DEBUG if file_config.DEBUG else False
+  if not config.CONTENT:
+    config.CONTENT = file_config.CONTENT if file_config.CONTENT else 'content'
+  if not config.TEMPLATES:
+    config.TEMPLATES = file_config.TEMPLATES if file_config.TEMPLATES else 'templates'
+  if not config.OUTPUT:
+    config.OUTPUT = file_config.OUTPUT if file_config.OUTPUT else 'out'
+  if not config.STATIC:
+    config.STATIC = file_config.STATIC if file_config.STATIC else []
+  if file_config.META:
+    config.META = file_config.META
+
+  return config
 
 
 def copy_static_content(sources, destination):
@@ -216,8 +272,7 @@ def main(argv):
   """Transcribe YAML content into HTML through Django templates."""
 
   global conf
-  import transcribe_config
-  conf = generate_configuration(argv, transcribe_config)
+  conf = generate_configuration(argv)
 
   settings.configure(
     TEMPLATE_DIRS = (conf.TEMPLATES, ),
