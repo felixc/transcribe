@@ -33,12 +33,12 @@ DEFAULT_CONF = {
   'meta': {}
 }
 
-DEBUG = False;  # Ugly, but I really don't want to thread conf['debug'] through
-                # all the possible paths/layers that wind up at Context()
+DEBUG = False  # Ugly, but I really don't want to thread conf['debug'] through
+               # all the possible paths/layers that wind up at Context()
 
 
 class RssFeed(django.utils.feedgenerator.Rss201rev2Feed):
-  """Wrapper around Django's RSS feed class that uses transcribe.py's config."""
+  """Wrapper around Django's RSS feed class that uses transcribe's config."""
   def __init__(self, root, items, config, *args, **kwargs):
     super(RssFeed, self).__init__(
       title = config['title'],
@@ -76,7 +76,7 @@ def output_context_to_template(context, template_path, output_path):
 
 
 def output_item(item, item_root, output_root):
-  """Transcribe the given item to output HTML using the appropriate template."""
+  """Transcribe the given item to HTML using the appropriate template."""
   out_file_name = item['slug'] + '.html'
   template = os.path.join(item_root, 'item.html')
   specialized_template = os.path.join(item_root, out_file_name)
@@ -101,8 +101,8 @@ def output_archive(all_items, item_root, output_root, archive_by):
   for year in archive:
     sorted_months = []
     for month in archive[year]:
-      sorted_months.append({ 'month': month, 'posts': archive[year][month] })
-    sorted_archive.append({ 'year': year, 'months': sorted_months })
+      sorted_months.append({'month': month, 'posts': archive[year][month]})
+    sorted_archive.append({'year': year, 'months': sorted_months})
     sorted_archive[-1]['months'].sort(key=lambda v: v['month'])
   sorted_archive.sort(key=lambda v: v['year'])
 
@@ -115,7 +115,7 @@ def output_archive(all_items, item_root, output_root, archive_by):
 
   for year in set(item['year'] for item in sorted_archive):
     year_root = os.path.join(archive_root, str(year))
-    year_items = filter(lambda i: i['year'] == year, sorted_archive)
+    year_items = [i for i in sorted_archive if i['year'] == year]
     os.mkdir(year_root)
     output_context_to_template(
       Context(item_root, {'all_items': all_items, item_root: year_items}),
@@ -124,8 +124,7 @@ def output_archive(all_items, item_root, output_root, archive_by):
     for month in set(item['month'] for item in year_items[0]['months']):
       month_name = month.strftime('%b').lower()
       month_root = os.path.join(year_root, month_name)
-      month_items = filter(
-        lambda i: i['month'] == month, year_items[0]['months'])
+      month_items = [i for i in year_items[0]['months'] if i['month'] == month]
       os.mkdir(month_root)
       output_context_to_template(
         Context(item_root, {
@@ -160,8 +159,8 @@ def output_linkables(all_items, item_root, output_root, linkable_attrs):
 def output_feed(all_items, item_root, output_root, config):
   """Produce an RSS feed of the items."""
   feed = RssFeed(item_root, all_items[:config['num_items']], config)
-  with open(os.path.join(output_root, 'rss.xml'), 'w') as fp:
-    feed.write(fp, 'utf-8')
+  with open(os.path.join(output_root, 'rss.xml'), 'w') as out_file:
+    feed.write(out_file, 'utf-8')
 
 
 def output_all(all_items, item_root, output_root, config):
@@ -200,7 +199,7 @@ def output_all(all_items, item_root, output_root, config):
 def paginate(size, items):
   """Generates (page-number, items) pairs given a page length and item list."""
   for i in xrange(0, len(items), size):
-    yield (i/size + 1, items[i:i+size])
+    yield (i / size + 1, items[i:i + size])
 
 
 def recreate_dir(path):
@@ -210,7 +209,7 @@ def recreate_dir(path):
 
 
 def generate_config(argv):
-  """Returns the config to use based on the config file and invocation params."""
+  """Returns the configuration to use based on all sources."""
 
   config = DEFAULT_CONF
 
@@ -284,7 +283,7 @@ def main(argv):
   recreate_dir(conf['output'])
   copy_static_content(conf['static'], conf['output'])
 
-  for root, dirs, files in os.walk(conf['content']):
+  for root, _, files in os.walk(conf['content']):
     all_items = []
 
     item_root = os.path.relpath(root, conf['content'])
