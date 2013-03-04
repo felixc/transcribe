@@ -7,10 +7,6 @@
 """Generate static HTML from Django templates and YAML content."""
 
 
-# TODO: Move strings into constants where appropriate (most places).
-# TODO: Test -- that is, other than in production...
-
-
 import argparse
 import collections
 import datetime
