@@ -1,6 +1,6 @@
 #!/usr/bin/python2.7
 #
-# Copyright (c) 2012 Felix Crux (www.felixcrux.com)
+# Copyright 2013 Felix Crux (www.felixcrux.com)
 # Released under the terms of the MIT License (see README for details).
 #
 
@@ -28,22 +28,35 @@ import django.template.loader
 import django.utils.feedgenerator
 
 
+DEFAULT_CONF = {
+  'debug': False,
+  'content': os.path.join(os.getcwd(), 'content'),
+  'templates': os.path.join(os.getcwd(), 'templates'),
+  'output': os.path.join(os.getcwd(), 'out'),
+  'static': [],
+  'meta': {}
+}
+
+DEBUG = False;  # Ugly, but I really don't want to thread conf['debug'] through
+                # all the possible paths/layers that wind up at Context()
+
+
 class RssFeed(django.utils.feedgenerator.Rss201rev2Feed):
   """Wrapper around Django's RSS feed class that uses transcribe.py's config."""
-  def __init__(self, root, items, *args, **kwargs):
+  def __init__(self, root, items, config, *args, **kwargs):
     super(RssFeed, self).__init__(
-      title = conf.META[root]['feed']['title'],
-      link = conf.META[root]['feed']['link'],
-      description = conf.META[root]['feed']['desc'],
+      title = config['title'],
+      link = config['link'],
+      description = config['desc'],
       *args, **kwargs)
 
     for item in items:
       self.add_item(
-        title = item[conf.META[root]['feed']['item_title']],
+        title = item[config['item_title']],
         link =
-            conf.META[root]['feed']['link'] + '/' + root + '/' + item['slug'],
+            config['link'] + '/' + root + '/' + item['slug'],
         description =
-            item[conf.META[root]['feed']['item_desc']] + '<p>Read more...</p>'
+            item[config['item_desc']] + '<p>Read more...</p>'
             # TODO: Get rid of that hardcoded 'Read more' string.
       )
 
@@ -51,7 +64,7 @@ class RssFeed(django.utils.feedgenerator.Rss201rev2Feed):
 class Context(django.template.Context):
   """Custom Django template context that includes extra helper variables."""
   def __init__(self, root, content):
-    content['debug'] = conf.DEBUG
+    content['debug'] = DEBUG
     content['root'] = root
     super(Context, self).__init__(content)
 
@@ -77,11 +90,10 @@ def output_item(item, item_root, output_root):
     os.path.join(output_root, out_file_name))
 
 
-def output_archive(all_items, item_root, output_root):
+def output_archive(all_items, item_root, output_root, archive_by):
   """Arrange items into a date-based hierarchy and output to template."""
   # TODO: Get rid of this gross copy/sort hack.
   # TODO: Come up with a more sensible structure for the date hierarchy.
-  archive_by = conf.META[item_root]['archive_by']
   archive = collections.defaultdict(lambda: collections.defaultdict(list))
   for item in all_items:
     date = item[archive_by]
@@ -127,13 +139,13 @@ def output_archive(all_items, item_root, output_root):
         os.path.join(month_root, 'index.html'))
 
 
-def output_linkables(all_items, item_root, output_root):
+def output_linkables(all_items, item_root, output_root, linkable_attrs):
   """Write lists of items according to their linkable attributes."""
   # TODO: Shouldn't necessitate this kind of copy.
   linkables = collections.defaultdict(lambda: collections.defaultdict(list))
 
   for content in all_items:
-    for attr in conf.META[item_root]['linkable_by']:
+    for attr in linkable_attrs:
       for attr_value in content[attr]:
         linkables[attr][attr_value].append(content)
 
@@ -149,32 +161,32 @@ def output_linkables(all_items, item_root, output_root):
         os.path.join(attr_root, attr_value + '.html'))
 
 
-def output_feed(all_items, item_root, output_root):
+def output_feed(all_items, item_root, output_root, config):
   """Produce an RSS feed of the items."""
-  feed = RssFeed(
-    item_root,
-    all_items[:conf.META[item_root]['feed']['num_items']])
+  feed = RssFeed(item_root, all_items[:config['num_items']], config)
   with open(os.path.join(output_root, 'rss.xml'), 'w') as fp:
     feed.write(fp, 'utf-8')
 
 
-def output_all(all_items, item_root, output_root):
+def output_all(all_items, item_root, output_root, config):
   """Perform all of the templated output."""
   for item in all_items:
     output_item(item, item_root, output_root)
 
-  if item_root in conf.META:
-    if 'order_by' in conf.META[item_root]:
-      all_items.sort(key=lambda v: v[conf.META[item_root]['order_by']])
+  if item_root in config:
+    if 'order_by' in config[item_root]:
+      all_items.sort(key=lambda v: v[config[item_root]['order_by']])
       all_items.reverse()
-    if 'linkable_by' in conf.META[item_root]:
-      output_linkables(all_items, item_root, output_root)
-    if 'archive_by' in conf.META[item_root]:
-      output_archive(all_items, item_root, output_root)
-    if 'feed' in conf.META[item_root]:
-      output_feed(all_items, item_root, output_root)
+    if 'linkable_by' in config[item_root]:
+      output_linkables(
+        all_items, item_root, output_root, config[item_root]['linkable_by'])
+    if 'archive_by' in config[item_root]:
+      output_archive(
+        all_items, item_root, output_root, config[item_root]['archive_by'])
+    if 'feed' in config[item_root]:
+      output_feed(all_items, item_root, output_root, config[item_root]['feed'])
 
-    num_per_page = conf.META[item_root].get('num_per_page', len(all_items))
+    num_per_page = config[item_root].get('num_per_page', len(all_items))
     paginator = paginate(num_per_page, all_items)
     for page_num, items in paginator:
       output_context_to_template(
@@ -201,62 +213,54 @@ def recreate_dir(path):
   os.mkdir(path)
 
 
-def generate_configuration(argv):
+def generate_config(argv):
   """Returns the config to use based on the config file and invocation params."""
 
+  config = DEFAULT_CONF
+
   arg_parser = argparse.ArgumentParser(
-    description='Generate static HTML from Django templates and YAML content.',
-    epilog='All arguments are required, but they may be provided in a ' +
-      'configuration file instead. See the included sample for details.')
+    description='Generate static HTML from Django templates and YAML content.')
   arg_parser.add_argument(
-    '-d', '--debug', type=bool, dest='DEBUG',
-    help='Sets the "debug" variable for use in templates.'
-  )
+    '-d', '--debug', action='store_const', const=True,
+    help='Sets the "debug" variable for use in templates to True.')
   arg_parser.add_argument(
-    '-c', '--content', dest='CONTENT',
-    help='Directory containing YAML content.'
-  )
+    '--no-debug', action='store_const', const=False, dest='debug',
+    help='Sets the "debug" variable for use in templates to False.')
   arg_parser.add_argument(
-    '-t', '--templates', dest='TEMPLATES',
-    help='Directory containing Django templates.'
-  )
+    '-i', '--content',
+    help='Directory containing YAML input content.')
   arg_parser.add_argument(
-    '-o', '--output', dest='OUTPUT',
-    help='Directory to write output to. Note: Contents are not preserved.'
-  )
+    '-t', '--templates',
+    help='Directory containing Django templates.')
   arg_parser.add_argument(
-    '-s', '--static', action='append', dest='STATIC',
-    help='Files/directories that should be copied verbatim to output directory.',
-  )
+    '-o', '--output',
+    help='Directory to write output to. Note: Contents are not preserved.')
   arg_parser.add_argument(
-    'configfile', nargs='?', default='transcribe_config',
-    help='Full path to the configuration file to use.'
-  )
-  config = arg_parser.parse_args(argv)
-  config.META = {}
+    '-s', '--static', action='append',
+    help='Files/dirs that should be copied verbatim to output directory.')
+  arg_parser.add_argument(
+    '-c', '--config-file',
+    help='Full path to the configuration file to use.')
 
-  config_dir = os.path.dirname(config.configfile)
-  config_file = os.path.basename(config.configfile)
-  if config_file[-3:] == '.py':
-    config_file = config_file[:-3]
-  try:
-    fh, fn, desc = imp.find_module(config_file, [config_dir])
-    file_config = imp.load_module('transcribe_config', fh, fn, desc)
-  except ImportError:
-    file_config = config
+  arg_conf = dict([(key, val) for key, val
+                   in vars(arg_parser.parse_args(argv)).items()
+                   if val is not None])
 
-  if not config.DEBUG:
-    config.DEBUG = file_config.DEBUG if file_config.DEBUG else False
-  if not config.CONTENT:
-    config.CONTENT = file_config.CONTENT if file_config.CONTENT else 'content'
-  if not config.TEMPLATES:
-    config.TEMPLATES = file_config.TEMPLATES if file_config.TEMPLATES else 'templates'
-  if not config.OUTPUT:
-    config.OUTPUT = file_config.OUTPUT if file_config.OUTPUT else 'out'
-  if not config.STATIC:
-    config.STATIC = file_config.STATIC if file_config.STATIC else []
-  if file_config.META:
-    config.META = file_config.META
+  if 'config_file' in arg_conf:
+    config_dir = os.path.dirname(arg_conf['config_file'])
+    config_file = os.path.basename(arg_conf['config_file'])
+    if config_file[-3:] == '.py':
+      config_file = config_file[:-3]
+    file_handle, file_name, desc = imp.find_module(config_file, [config_dir])
+    file_conf = imp.load_module(
+      'transcribe_config', file_handle, file_name, desc
+      ).TRANSCRIBE_CONFIG
+    config = dict(config.items() + file_conf.items())
+  config = dict(config.items() + arg_conf.items())
+
+  # Ugly hack; see comment at top of file where DEBUG is defined
+  global DEBUG
+  DEBUG = config['debug']
 
   return config
 
@@ -271,25 +275,24 @@ def copy_static_content(sources, destination):
 def main(argv):
   """Transcribe YAML content into HTML through Django templates."""
 
-  global conf
-  conf = generate_configuration(argv)
+  conf = generate_config(argv)
 
   settings.configure(
-    TEMPLATE_DIRS = (conf.TEMPLATES, ),
+    TEMPLATE_DIRS = (conf['templates'], ),
     TEMPLATE_LOADERS = (
       ('django.template.loaders.cached.Loader',
        ('django.template.loaders.filesystem.Loader', )), )
     )
   import django.contrib.syndication.views  # Requires Django to be configured.
 
-  recreate_dir(conf.OUTPUT)
-  copy_static_content(conf.STATIC, conf.OUTPUT)
+  recreate_dir(conf['output'])
+  copy_static_content(conf['static'], conf['output'])
 
-  for root, dirs, files in os.walk(conf.CONTENT):
+  for root, dirs, files in os.walk(conf['content']):
     all_items = []
 
-    item_root = os.path.relpath(root, conf.CONTENT)
-    output_root = os.path.join(conf.OUTPUT, item_root)
+    item_root = os.path.relpath(root, conf['content'])
+    output_root = os.path.join(conf['output'], item_root)
     if item_root != '.':
       os.mkdir(output_root)
 
@@ -299,7 +302,7 @@ def main(argv):
       all_items.append(content)
 
     if all_items:
-      output_all(all_items, item_root, output_root)
+      output_all(all_items, item_root, output_root, conf['meta'])
 
 
 if __name__ == '__main__':
