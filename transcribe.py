@@ -62,6 +62,7 @@ class Context(django.template.Context):
   _context = {}
 
   def __init__(self, root, content):
+    content['root'] = root
     super(Context, self).__init__(dict(self._context.items() + content.items()))
 
 
