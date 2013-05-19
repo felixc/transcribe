@@ -59,11 +59,10 @@ class RssFeed(django.utils.feedgenerator.Rss201rev2Feed):
 class Context(django.template.Context):
   """Custom Django template context that includes extra helper variables."""
 
-  context = {}
+  _context = {}
 
   def __init__(self, root, content):
-    content['root'] = root
-    super(Context, self).__init__(dict(self.context.items() + content.items()))
+    super(Context, self).__init__(dict(self._context.items() + content.items()))
 
 
 def output_context_to_template(context, template_path, output_path):
@@ -262,7 +261,7 @@ def generate_config(argv):
     config = dict(config.items() + file_conf.items())
   config = dict(config.items() + arg_conf.items())
 
-  Context.context = dict(Context.context.items() + config['context'].items())
+  Context._context = dict(Context._context.items() + config['context'].items())
 
   return config
 
