@@ -12,9 +12,11 @@
 TRANSCRIBE_CONFIG = {
 
   # No inherent meaning, but useful for your own templates where you may wish
-  # to selectively include/exclude content based on this setting. Available in
-  # templates as the variable 'debug'.
-  'debug': False,
+  # to provide additional context information. These values are directly
+  # available to your templates in the top-level namespace.
+  'context': {
+    'debug': False
+  },
 
   # content, templates, and output are the directories that contain your YAML
   # content, your Django templates, and the generated output, respectively.

@@ -11,6 +11,7 @@ import argparse
 import collections
 import datetime
 import imp
+import json
 import math
 import os
 import os.path
@@ -25,7 +26,7 @@ import django.utils.feedgenerator
 
 
 DEFAULT_CONF = {
-  'debug': False,
+  'context': {},
   'content': os.path.join(os.getcwd(), 'content'),
   'templates': os.path.join(os.getcwd(), 'templates'),
   'output': os.path.join(os.getcwd(), 'out'),
@@ -41,28 +42,28 @@ class RssFeed(django.utils.feedgenerator.Rss201rev2Feed):
   """Wrapper around Django's RSS feed class that uses transcribe's config."""
   def __init__(self, root, items, config, *args, **kwargs):
     super(RssFeed, self).__init__(
-      title = config['title'],
-      link = config['link'],
-      description = config['desc'],
+      title=config['title'],
+      link=config['link'],
+      description=config['desc'],
       *args, **kwargs)
 
     for item in items:
       self.add_item(
-        title = item[config['item_title']],
-        link =
-            config['link'] + '/' + root + '/' + item['slug'],
-        description =
-            item[config['item_desc']] + '<p>Read more...</p>'
-            # TODO: Get rid of that hardcoded 'Read more' string.
+        title=item[config['item_title']],
+        link=config['link'] + '/' + root + '/' + item['slug'],
+        description=item[config['item_desc']] + '<p>Read more...</p>'
+        # TODO: Get rid of that hardcoded 'Read more' string.
       )
 
 
 class Context(django.template.Context):
   """Custom Django template context that includes extra helper variables."""
+
+  context = {}
+
   def __init__(self, root, content):
-    content['debug'] = DEBUG
     content['root'] = root
-    super(Context, self).__init__(content)
+    super(Context, self).__init__(dict(self.context.items() + content.items()))
 
 
 def output_context_to_template(context, template_path, output_path):
@@ -211,16 +212,24 @@ def recreate_dir(path):
 def generate_config(argv):
   """Returns the configuration to use based on all sources."""
 
+  class AddToContextDictAction(argparse.Action):
+    """Helper action for adding parsed arguments to the context dictionary."""
+    def __call__(self, parser, namespace, values, option_string=None):
+      new_context = {}
+      if (namespace.context):
+        new_context = dict(
+          namespace.context.items() + [[values[0], json.loads(values[1])]])
+      else:
+        new_context = dict([[values[0], json.loads(values[1])]])
+      setattr(namespace, 'context', new_context)
+
   config = DEFAULT_CONF
 
   arg_parser = argparse.ArgumentParser(
     description='Generate static HTML from Django templates and YAML content.')
   arg_parser.add_argument(
-    '-d', '--debug', action='store_const', const=True,
-    help='Sets the "debug" variable for use in templates to True.')
-  arg_parser.add_argument(
-    '--no-debug', action='store_const', const=False, dest='debug',
-    help='Sets the "debug" variable for use in templates to False.')
+    '-cx', '--context', nargs=2, action=AddToContextDictAction,
+    help='Extra context information to make available within your templates.')
   arg_parser.add_argument(
     '-i', '--content',
     help='Directory containing YAML input content.')
@@ -249,13 +258,11 @@ def generate_config(argv):
     file_handle, file_name, desc = imp.find_module(config_file, [config_dir])
     file_conf = imp.load_module(
       'transcribe_config', file_handle, file_name, desc
-      ).TRANSCRIBE_CONFIG
+    ).TRANSCRIBE_CONFIG
     config = dict(config.items() + file_conf.items())
   config = dict(config.items() + arg_conf.items())
 
-  # Ugly hack; see comment at top of file where DEBUG is defined
-  global DEBUG
-  DEBUG = config['debug']
+  Context.context = dict(Context.context.items() + config['context'].items())
 
   return config
 
@@ -273,11 +280,11 @@ def main(argv):
   conf = generate_config(argv)
 
   settings.configure(
-    TEMPLATE_DIRS = (conf['templates'], ),
-    TEMPLATE_LOADERS = (
+    TEMPLATE_DIRS=(conf['templates'], ),
+    TEMPLATE_LOADERS=(
       ('django.template.loaders.cached.Loader',
        ('django.template.loaders.filesystem.Loader', )), )
-    )
+  )
   import django.contrib.syndication.views  # Requires Django to be configured.
 
   recreate_dir(conf['output'])
