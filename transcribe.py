@@ -1,7 +1,7 @@
 #!/usr/bin/python2.7
 #
 # Copyright 2013 Felix Crux (www.felixcrux.com)
-# Released under the terms of the MIT License (see README for details).
+# Released under the terms of the MIT (Expat) License (see LICENSE for details)
 #
 
 """Generate static HTML from Django templates and YAML content."""

@@ -1,0 +1,17 @@
+{% for year in blog|dictsortreversed:"year" %}
+  <a href="/{{ root }}/archives/{{ year.year }}/">
+    {{ year.year }}
+  </a>
+  {% for month in year.months|dictsortreversed:"month" %}
+    <a href="/{{ root }}/archives/{{ year.year }}/{{ month.month|date:"b" }}/">
+      {{ month.month|date:"F" }}
+    </a>:
+    <ul>
+    {% for post in month.posts|dictsortreversed:"pub_date" %}
+      <li>
+        <a href="/{{ root }}/{{ post.slug }}.html">{{ post.title }}</a>
+      </li>
+    {% endfor %}
+    </ul>
+  {% endfor %}
+{% endfor %}
