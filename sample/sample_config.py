@@ -90,7 +90,9 @@ TRANSCRIBE_CONFIG = {
         # Which item attribute to use as the RSS entry title.
         'item_title': 'title',
         # Which item attribute to use as the RSS entry description.
-        'item_desc': 'content'
+        'item_desc': 'content',
+        # Which item attribute contains the publication date.
+        'item_pub_date': 'pub_date'
       }
     }
   }
