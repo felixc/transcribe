@@ -287,7 +287,9 @@ def main(argv):
       ('django.template.loaders.cached.Loader',
        ('django.template.loaders.filesystem.Loader', )), )
   )
+  import django
   import django.contrib.syndication.views  # Requires Django to be configured.
+  django.setup()
 
   recreate_dir(conf['output'])
   copy_static_content(conf['static'], conf['output'])
