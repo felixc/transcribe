@@ -9,14 +9,14 @@ class GenerateConfigurationTest(unittest.TestCase):
     self.assertEqual(transcribe.DEFAULT_CONF, transcribe.generate_config([]))
 
   def test_file_overrides_defaults(self):
-    conf_file = tempfile.NamedTemporaryFile(suffix='.py')
+    conf_file = tempfile.NamedTemporaryFile(mode='w+t', suffix='.py')
     conf_file.write('TRANSCRIBE_CONFIG = { "output": "foo" }')
     conf_file.flush()
     result_conf = transcribe.generate_config(['--config-file', conf_file.name])
     self.assertEqual(result_conf['output'], 'foo')
 
   def test_command_line_overrides_file(self):
-    conf_file = tempfile.NamedTemporaryFile(suffix='.py')
+    conf_file = tempfile.NamedTemporaryFile(mode='w+t', suffix='.py')
     conf_file.write('TRANSCRIBE_CONFIG = { "output": "foo" }')
     conf_file.flush()
     result_conf = transcribe.generate_config(
@@ -24,17 +24,21 @@ class GenerateConfigurationTest(unittest.TestCase):
     self.assertEqual(result_conf['output'], 'bar')
 
   def test_command_line_overrides_defaults(self):
+    test_conf = transcribe.DEFAULT_CONF.copy()
+    test_conf.update({'content': 'foo'})
     self.assertEqual(
-      dict(transcribe.DEFAULT_CONF.items() + {'content': 'foo'}.items()),
+      test_conf,
       transcribe.generate_config(['--content', 'foo']))
 
   def test_add_context_vars(self):
+    test_conf = transcribe.DEFAULT_CONF.copy()
+    test_conf.update({'context': {
+      'foo': 'bar',
+      'baz': 23,
+      'frob': [1, 2, 3]
+    }})
     self.assertEqual(
-      dict(transcribe.DEFAULT_CONF.items() + {'context': {
-          'foo': 'bar',
-          'baz': 23,
-          'frob': [1, 2, 3]
-        }}.items()),
+      test_conf,
       transcribe.generate_config(
         ['--context', 'foo', '"bar"',
          '-cx', 'baz', '23',

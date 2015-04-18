@@ -1,6 +1,7 @@
-#!/usr/bin/python2.7
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 #
-# Copyright 2013 Felix Crux (www.felixcrux.com)
+# Copyright 2013–2015 Felix Crux (www.felixcrux.com)
 # Released under the terms of the MIT (Expat) License (see LICENSE for details)
 #
 
@@ -65,17 +66,17 @@ class Context(django.template.Context):
 
   def __init__(self, root, content):
     content['root'] = root
-    super(Context, self).__init__(dict(self._context.items() + content.items()))
+    super(Context, self).__init__(content)
 
 
 def output_context_to_template(context, template_path, output_path):
   """Write the given context to the output path using a template.
      The 'template_path' parameter may be a list of templates to look for."""
-  with open(output_path, 'w') as output:
+  with open(output_path, 'wt') as output:
     template_path = \
         template_path if type(template_path) == list else [template_path]
     template = django.template.loader.select_template(template_path)
-    output.write(template.render(context).encode('UTF-8'))
+    output.write(template.render(context))
 
 
 def output_item(item, item_root, output_root):
@@ -201,7 +202,7 @@ def output_all(all_items, item_root, output_root, config):
 
 def paginate(size, items):
   """Generates (page-number, items) pairs given a page length and item list."""
-  for i in xrange(0, len(items), size):
+  for i in range(0, len(items), size):
     yield (i / size + 1, items[i:i + size])
 
 
@@ -219,10 +220,8 @@ def generate_config(argv):
     def __call__(self, parser, namespace, values, option_string=None):
       new_context = {}
       if (namespace.context):
-        new_context = dict(
-          namespace.context.items() + [[values[0], json.loads(values[1])]])
-      else:
-        new_context = dict([[values[0], json.loads(values[1])]])
+        new_context.update(namespace.context)
+      new_context[values[0]] = json.loads(values[1])
       setattr(namespace, 'context', new_context)
 
   config = DEFAULT_CONF
@@ -261,10 +260,10 @@ def generate_config(argv):
     file_conf = imp.load_module(
       'transcribe_config', file_handle, file_name, desc
     ).TRANSCRIBE_CONFIG
-    config = dict(config.items() + file_conf.items())
-  config = dict(config.items() + arg_conf.items())
+    config.update(file_conf)
+  config.update(arg_conf)
 
-  Context._context = dict(Context._context.items() + config['context'].items())
+  Context._context.update(config['context'])
 
   return config
 
