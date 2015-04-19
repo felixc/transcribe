@@ -203,7 +203,7 @@ def output_all(all_items, item_root, output_root, config):
 def paginate(size, items):
   """Generates (page-number, items) pairs given a page length and item list."""
   for i in range(0, len(items), size):
-    yield (i / size + 1, items[i:i + size])
+    yield (int(i / size) + 1, items[i:i + size])
 
 
 def recreate_dir(path):
