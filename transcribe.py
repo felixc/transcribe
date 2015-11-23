@@ -54,7 +54,9 @@ class RssFeed(django.utils.feedgenerator.Rss201rev2Feed):
                 link=config['link'] + '/' + root + '/' + item['slug'],
                 unique_id=item['slug'],
                 pubdate=item[config['item_pub_date']],
-                description=item[config['item_desc']] + '<p>Read more...</p>'
+                description=(item[config['item_desc']] +
+                             '<p><a href="' + config['link'] + '/' + root +
+                             '/' + item['slug'] + '">Read more...</a></p>')
                 # TODO: Get rid of that hardcoded 'Read more' string.
             )
 
