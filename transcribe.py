@@ -46,6 +46,7 @@ class RssFeed(django.utils.feedgenerator.Rss201rev2Feed):
             title=config['title'],
             link=config['link'],
             description=config['desc'],
+            feed_url=config['link'] + '/' + root + '/rss.xml',
             *args, **kwargs)
 
         for item in items:
@@ -53,6 +54,7 @@ class RssFeed(django.utils.feedgenerator.Rss201rev2Feed):
                 title=item[config['item_title']],
                 link=config['link'] + '/' + root + '/' + item['slug'],
                 unique_id=item['slug'],
+                unique_id_is_permalink=False,
                 pubdate=item[config['item_pub_date']],
                 description=(item[config['item_desc']] +
                              '<p><a href="' + config['link'] + '/' + root +
