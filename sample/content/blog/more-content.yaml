@@ -1,5 +1,5 @@
 title: "A Special Article"
 tags: [tag2, tag3]
-pub_date: !!timestamp 2013-06-02
+pub_date: !!timestamp 2013-06-02T00:00:00Z
 content: |
   <p>This is a special article.</p>

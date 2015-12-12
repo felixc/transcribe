@@ -1,5 +1,5 @@
 title: A Quick Update
-pub_date: !!timestamp 2012-05-15
+pub_date: !!timestamp 2012-05-15T02:23:00-0400
 tags: [tag1, tag3]
 content: |
   <p>Some small content.</p>

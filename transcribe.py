@@ -288,6 +288,16 @@ def copy_static_content(sources, destination):
             content, os.path.join(destination, os.path.basename(content)))
 
 
+def _timestamp_loader(loader, node):
+    """Timezone-aware datetime loader for PyYAML."""
+    try:
+        return datetime.datetime.strptime(node.value, '%Y-%m-%dT%H:%M:%S%z')
+    except ValueError:
+        pass
+    dt = datetime.datetime.strptime(node.value, '%Y-%m-%dT%H:%M:%SZ')
+    return dt.replace(tzinfo=datetime.timezone.utc)
+
+
 def main(argv):
     """Transcribe YAML content into HTML through Django templates."""
 
@@ -301,6 +311,8 @@ def main(argv):
     )
     import django.contrib.syndication.views  # Requires Django to be configured
     django.setup()
+
+    yaml.add_constructor('tag:yaml.org,2002:timestamp', _timestamp_loader)
 
     recreate_dir(conf['output'])
     copy_static_content(conf['static'], conf['output'])
