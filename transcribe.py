@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 #
 # Copyright 2013–2015 Felix Crux <felixc@felixcrux.com>
 # Released under the terms of the MIT (Expat) License (see LICENSE for details)
@@ -36,11 +35,12 @@ DEFAULT_CONF = {
 }
 
 DEBUG = False  # Ugly, but I really don't want to thread conf['debug'] through
-               # all the possible paths/layers that wind up at Context()
+               # all the possible paths/layers that wind up as template context
 
 
 class RssFeed(django.utils.feedgenerator.Rss201rev2Feed):
     """Wrapper around Django's RSS feed class that uses transcribe's config."""
+
     def __init__(self, root, items, config, *args, **kwargs):
         super(RssFeed, self).__init__(
             title=config['title'],
@@ -63,22 +63,12 @@ class RssFeed(django.utils.feedgenerator.Rss201rev2Feed):
             )
 
 
-class Context(django.template.Context):
-    """Custom Django template context that includes extra helper variables."""
-
-    _context = {}
-
-    def __init__(self, root, content):
-        content['root'] = root
-        super(Context, self).__init__(content)
-
-
 def output_context_to_template(context, template_path, output_path):
     """Write the given context to the output path using a template.
        The 'template_path' parameter may be a list of templates to look for."""
     with open(output_path, 'w') as output:
         template_path = \
-            template_path if type(template_path) == list else [template_path]
+            template_path if isinstance(template_path, list) else [template_path]
         template = django.template.loader.select_template(template_path)
         output.write(template.render(context))
 
@@ -89,7 +79,7 @@ def output_item(item, item_root, output_root):
     template = os.path.join(item_root, 'item.html')
     specialized_template = os.path.join(item_root, out_file_name)
     output_context_to_template(
-        Context(item_root, item),
+        {'root': item_root, **item},
         [specialized_template, template],
         os.path.join(output_root, out_file_name))
 
@@ -118,8 +108,7 @@ def output_archive(all_items, item_root, output_root, archive_by):
     archive_root = os.path.join(output_root, 'archives')
     os.mkdir(archive_root)
     output_context_to_template(
-        Context(item_root,
-                {'all_items': all_items, item_root: sorted_archive}),
+        {'root': item_root, 'all_items': all_items, item_root: sorted_archive},
         os.path.join(item_root, 'archive.html'),
         os.path.join(archive_root, 'index.html'))
 
@@ -128,8 +117,7 @@ def output_archive(all_items, item_root, output_root, archive_by):
         year_items = [i for i in sorted_archive if i['year'] == year]
         os.mkdir(year_root)
         output_context_to_template(
-            Context(item_root,
-                    {'all_items': all_items, item_root: year_items}),
+            {'root': item_root, 'all_items': all_items, item_root: year_items},
             os.path.join(item_root, 'archive.html'),
             os.path.join(year_root, 'index.html'))
         for month in set(item['month'] for item in year_items[0]['months']):
@@ -139,9 +127,11 @@ def output_archive(all_items, item_root, output_root, archive_by):
                            if i['month'] == month]
             os.mkdir(month_root)
             output_context_to_template(
-                Context(item_root, {
+                {
+                    'root': item_root,
                     'all_items': all_items,
-                    item_root: [{'year': year, 'months': month_items}]}),
+                    item_root: [{'year': year, 'months': month_items}]
+                },
                 os.path.join(item_root, 'archive.html'),
                 os.path.join(month_root, 'index.html'))
 
@@ -161,9 +151,11 @@ def output_linkables(all_items, item_root, output_root, linkable_attrs):
         os.mkdir(attr_root)
         for attr_value in linkables[attr]:
             output_context_to_template(
-                Context(item_root, {
+                {
+                    'root': item_root,
                     'context': 'Posts Tagged "' + attr_value + '"',
-                    item_root.split('/')[-1]: linkables[attr][attr_value]}),
+                    item_root.split('/')[-1]: linkables[attr][attr_value]
+                },
                 os.path.join(item_root, 'list.html'),
                 os.path.join(attr_root, attr_value + '.html'))
 
@@ -200,12 +192,14 @@ def output_all(all_items, item_root, output_root, config):
     paginator = paginate(num_per_page, all_items)
     for page_num, items in paginator:
         output_context_to_template(
-            Context(item_root, {
+            {
+                'root': item_root,
                 'all_items': all_items,
                 'page': page_num,
                 'page_count': int(
                     math.ceil(float(len(all_items)) / num_per_page)),
-                item_root.split('/')[-1]: items}),
+                item_root.split('/')[-1]: items
+            },
             os.path.join(item_root, 'list.html'),
             os.path.join(
                 output_root,
@@ -229,6 +223,7 @@ def generate_config(argv):
 
     class AddToContextDictAction(argparse.Action):
         """Helper for adding parsed arguments to the context dictionary."""
+
         def __call__(self, parser, namespace, values, option_string=None):
             new_context = {}
             if namespace.context:
@@ -276,8 +271,6 @@ def generate_config(argv):
         config.update(file_conf)
     config.update(arg_conf)
 
-    Context._context.update(config['context'])
-
     return config
 
 
@@ -304,10 +297,10 @@ def main(argv):
     conf = generate_config(argv)
 
     settings.configure(
-        TEMPLATE_DIRS=(conf['templates'], ),
-        TEMPLATE_LOADERS=(
-            ('django.template.loaders.cached.Loader',
-             ('django.template.loaders.filesystem.Loader', )), )
+        TEMPLATES=[{
+            'BACKEND': 'django.template.backends.django.DjangoTemplates',
+            'DIRS': [conf['templates']],
+        }]
     )
     import django.contrib.syndication.views  # Requires Django to be configured
     django.setup()
