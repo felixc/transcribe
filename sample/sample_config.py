@@ -44,7 +44,7 @@ TRANSCRIBE_CONFIG = {
     #
     #   title: "An example YAML content file."
     #   author: ["J. Doe"]
-    #   pub_date: !!timestamp 2012-10-01
+    #   date: !!timestamp 2012-10-01
     #   tags: ["example", "configuration"]
     #   summary: "An article published to example.com through transcribe.py"
     #
@@ -75,11 +75,11 @@ TRANSCRIBE_CONFIG = {
             # Attribute to use as the basis for a chronological archive.
             # Must be a !!timestamp value.
             # Uses the template 'templates/*/archive.html'.
-            'archive_by': 'pub_date',
+            'archive_by': 'date',
             # In listings, which attribute should items be ordered by. Often
             # chronological (i.e. a !!timestamp value), but could also be, e.g,
             # alphabetical or just sequence-numbered. Any sortable type works.
-            'order_by': 'pub_date',
+            'order_by': 'date',
             # If present, lists will be paginated with this number of items
             # per page.
             'num_per_page': 10,
@@ -93,12 +93,6 @@ TRANSCRIBE_CONFIG = {
                 'desc': 'An RSS Feed for Example.com: The Home of Examples.',
                 # Number of items to include in the feed.
                 'num_items': 10,
-                # Which item attribute to use as the RSS entry title.
-                'item_title': 'title',
-                # Which item attribute to use as the RSS entry description.
-                'item_desc': 'content',
-                # Which item attribute contains the publication date.
-                'item_pub_date': 'pub_date'
             }
         }
     }

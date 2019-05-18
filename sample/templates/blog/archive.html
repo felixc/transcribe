@@ -7,7 +7,7 @@
       {{ month.month|date:"F" }}
     </a>:
     <ul>
-    {% for post in month.posts|dictsortreversed:"pub_date" %}
+    {% for post in month.posts|dictsortreversed:"date" %}
       <li>
         <a href="/{{ root }}/{{ post.slug }}.html">{{ post.title }}</a>
       </li>

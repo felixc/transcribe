@@ -1,5 +1,5 @@
 title: "The title of an article"
 tags: [tag1, tag2]
-pub_date: !!timestamp 2013-06-01T03:23:14Z
+date: !!timestamp 2013-06-01T03:23:14Z
 content: |
   <p>This is an article</p>

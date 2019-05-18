@@ -51,15 +51,13 @@ class RssFeed(django.utils.feedgenerator.Rss201rev2Feed):
 
         for item in items:
             self.add_item(
-                title=item[config['item_title']],
+                title=item['title'],
                 link=config['link'] + '/' + root + '/' + item['slug'],
                 unique_id=item['slug'],
                 unique_id_is_permalink=False,
-                pubdate=item[config['item_pub_date']],
-                description=(item[config['item_desc']] +
-                             '<p><a href="' + config['link'] + '/' + root +
-                             '/' + item['slug'] + '">Read more...</a></p>')
-                # TODO: Get rid of that hardcoded 'Read more' string.
+                pubdate=item['date'],
+                updateddate=item['date'],
+                description=(item['snippet'] + item['content'])
             )
 
 
@@ -154,6 +152,7 @@ def output_linkables(all_items, item_root, output_root, linkable_attrs):
                 {
                     'root': item_root,
                     'context': 'Posts Tagged "' + attr_value + '"',
+                    'all_items': all_items,
                     item_root.split('/')[-1]: linkables[attr][attr_value]
                 },
                 os.path.join(item_root, 'list.html'),
