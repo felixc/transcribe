@@ -299,6 +299,9 @@ def main(argv):
         TEMPLATES=[{
             'BACKEND': 'django.template.backends.django.DjangoTemplates',
             'DIRS': [conf['templates']],
+            'OPTIONS': {
+                'builtins': ['template_tags'],
+            }
         }]
     )
     import django.contrib.syndication.views  # Requires Django to be configured
