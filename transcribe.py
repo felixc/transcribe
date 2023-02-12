@@ -57,6 +57,8 @@ class RssFeed(django.utils.feedgenerator.Rss201rev2Feed):
                 unique_id_is_permalink=False,
                 pubdate=item['date'],
                 updateddate=item.get('updated_date', item['date']),
+                categories=item['tags'],
+                author_name="Felix Crux",
                 description=(item['snippet'] + item['content'])
             )
 
