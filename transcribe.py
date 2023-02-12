@@ -73,18 +73,18 @@ def output_context_to_template(context, template_path, output_path):
         output.write(template.render(context))
 
 
-def output_item(item, item_root, output_root):
+def output_item(item, item_root, output_root, context):
     """Transcribe the given item to HTML using the appropriate template."""
     out_file_name = item['slug'] + '.html'
     template = os.path.join(item_root, 'item.html')
     specialized_template = os.path.join(item_root, out_file_name)
     output_context_to_template(
-        {'root': item_root, **item},
+        {'root': item_root, **context, **item},
         [specialized_template, template],
         os.path.join(output_root, out_file_name))
 
 
-def output_archive(all_items, item_root, output_root, archive_by):
+def output_archive(all_items, item_root, output_root, archive_by, context):
     """Arrange items into a date-based hierarchy and output to template."""
     # TODO: Get rid of this gross copy/sort hack.
     # TODO: Come up with a more sensible structure for the date hierarchy.
@@ -108,7 +108,7 @@ def output_archive(all_items, item_root, output_root, archive_by):
     archive_root = os.path.join(output_root, 'archives')
     os.mkdir(archive_root)
     output_context_to_template(
-        {'root': item_root, 'all_items': all_items, item_root: sorted_archive},
+        {'root': item_root, 'all_items': all_items, item_root: sorted_archive, **context},
         os.path.join(item_root, 'archive.html'),
         os.path.join(archive_root, 'index.html'))
 
@@ -117,7 +117,7 @@ def output_archive(all_items, item_root, output_root, archive_by):
         year_items = [i for i in sorted_archive if i['year'] == year]
         os.mkdir(year_root)
         output_context_to_template(
-            {'root': item_root, 'all_items': all_items, item_root: year_items},
+            {'root': item_root, 'all_items': all_items, item_root: year_items, **context},
             os.path.join(item_root, 'archive.html'),
             os.path.join(year_root, 'index.html'))
         for month in set(item['month'] for item in year_items[0]['months']):
@@ -130,13 +130,14 @@ def output_archive(all_items, item_root, output_root, archive_by):
                 {
                     'root': item_root,
                     'all_items': all_items,
-                    item_root: [{'year': year, 'months': month_items}]
+                    item_root: [{'year': year, 'months': month_items}],
+                    **context
                 },
                 os.path.join(item_root, 'archive.html'),
                 os.path.join(month_root, 'index.html'))
 
 
-def output_linkables(all_items, item_root, output_root, linkable_attrs):
+def output_linkables(all_items, item_root, output_root, linkable_attrs, context):
     """Write lists of items according to their linkable attributes."""
     # TODO: Shouldn't necessitate this kind of copy.
     linkables = collections.defaultdict(lambda: collections.defaultdict(list))
@@ -155,7 +156,8 @@ def output_linkables(all_items, item_root, output_root, linkable_attrs):
                     'root': item_root,
                     'context': 'Posts Tagged "' + attr_value + '"',
                     'all_items': all_items,
-                    item_root.split('/')[-1]: linkables[attr][attr_value]
+                    item_root.split('/')[-1]: linkables[attr][attr_value],
+                    **context
                 },
                 os.path.join(item_root, 'list.html'),
                 os.path.join(attr_root, attr_value + '.html'))
@@ -168,10 +170,10 @@ def output_feed(all_items, item_root, output_root, config):
         feed.write(out_file, 'utf-8')
 
 
-def output_all(all_items, item_root, output_root, config):
+def output_all(all_items, item_root, output_root, config, context):
     """Perform all of the templated output."""
     for item in all_items:
-        output_item(item, item_root, output_root)
+        output_item(item, item_root, output_root, context)
 
     if item_root not in config:
         return
@@ -180,11 +182,17 @@ def output_all(all_items, item_root, output_root, config):
         all_items.sort(key=lambda v: v[config[item_root]['order_by']])
         all_items.reverse()
     if 'linkable_by' in config[item_root]:
-        output_linkables(all_items, item_root, output_root,
-                         config[item_root]['linkable_by'])
+        output_linkables(
+            all_items,
+            item_root,
+            output_root,
+            config[item_root]['linkable_by'],
+            context
+        )
     if 'archive_by' in config[item_root]:
         output_archive(all_items, item_root, output_root,
-                       config[item_root]['archive_by'])
+                       config[item_root]['archive_by'],
+                       context)
     if 'feed' in config[item_root]:
         output_feed(all_items, item_root, output_root,
                     config[item_root]['feed'])
@@ -199,7 +207,8 @@ def output_all(all_items, item_root, output_root, config):
                 'page': page_num,
                 'page_count': int(
                     math.ceil(float(len(all_items)) / num_per_page)),
-                item_root.split('/')[-1]: items
+                item_root.split('/')[-1]: items,
+                **context
             },
             os.path.join(item_root, 'list.html'),
             os.path.join(
@@ -328,7 +337,7 @@ def main(argv):
             all_items.append(content)
 
         if all_items:
-            output_all(all_items, item_root, output_root, conf['meta'])
+            output_all(all_items, item_root, output_root, conf['meta'], conf['context'])
 
 
 if __name__ == '__main__':
